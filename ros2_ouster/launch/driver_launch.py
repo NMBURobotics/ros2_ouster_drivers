@@ -48,8 +48,11 @@ def generate_launch_description():
                                 output='screen',
                                 emulate_tty=True,
                                 parameters=[parameter_file],
-                                arguments=['--ros-args', '--log-level', 'INFO'],
+                                arguments=['--ros-args',
+                                           '--log-level', 'INFO'],
                                 namespace='/',
+                                remappings=[('points', 'ouster/points'),
+                                            ('imu', 'ouster/imu')]
                                 )
 
     configure_event = EmitEvent(
@@ -78,8 +81,9 @@ def generate_launch_description():
         OnShutdown(
             on_shutdown=[
                 EmitEvent(event=ChangeState(
-                  lifecycle_node_matcher=matches_node_name(node_name=node_name),
-                  transition_id=lifecycle_msgs.msg.Transition.TRANSITION_ACTIVE_SHUTDOWN,
+                    lifecycle_node_matcher=matches_node_name(
+                        node_name=node_name),
+                    transition_id=lifecycle_msgs.msg.Transition.TRANSITION_ACTIVE_SHUTDOWN,
                 )),
                 LogInfo(
                     msg="[LifecycleLaunch] Ouster driver node is exiting."),
@@ -92,5 +96,5 @@ def generate_launch_description():
         driver_node,
         activate_event,
         configure_event,
-        shutdown_event,
+        shutdown_event
     ])
