@@ -5,8 +5,8 @@ ouster_driver:
     lidar_mode: "512x10"
     imu_port: 7503
     lidar_port: 7502
-    sensor_frame: lidar_data_link
-    laser_frame: lidar_sensor_link
+    sensor_frame: lidar_sensor_link
+    laser_frame: lidar_data_link
     imu_frame: lidar_imu_link
 
     # if False, data are published with sensor data QoS. This is preferrable
