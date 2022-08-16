@@ -70,6 +70,9 @@ namespace sensor
       _cloud = std::make_unique<Cloud>(_width, _height);
       _pub = _node->create_publisher<sensor_msgs::msg::PointCloud2>(
         "points", qos);
+      _pub_base_link = _node->create_publisher<sensor_msgs::msg::PointCloud2>(
+        "points_base_link", qos);
+
 
       tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
       tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -81,6 +84,7 @@ namespace sensor
     ~PointcloudProcessor()
     {
       _pub.reset();
+      _pub_base_link.reset();
     }
 
     /**
@@ -115,8 +119,7 @@ namespace sensor
         pcl_ros::transformPointCloud(
           "base_link", transform, ros_cloud, ros_cloud);
 
-        _pub->publish(ros_cloud);
-
+        _pub_base_link->publish(ros_cloud);
 
       } catch (tf2::TransformException & ex) {
         RCLCPP_ERROR(
@@ -141,6 +144,7 @@ namespace sensor
     void onActivate() override
     {
       _pub->on_activate();
+      _pub_base_link->on_activate();
     }
 
     /**
@@ -149,11 +153,14 @@ namespace sensor
     void onDeactivate() override
     {
       _pub->on_deactivate();
+      _pub_base_link->on_deactivate();
     }
 
   private:
     std::unique_ptr<Cloud> _cloud;
     rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr _pub;
+    rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr _pub_base_link;
+
     rclcpp_lifecycle::LifecycleNode::SharedPtr _node;
     ouster::XYZLut _xyz_lut;
     std::string _frame;
