@@ -31,6 +31,10 @@
 #include "ros2_ouster/interfaces/data_processor_interface.hpp"
 #include "ros2_ouster/full_rotation_accumulator.hpp"
 
+#include <tf2_ros/transform_listener.h>
+#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
+#include <pcl_ros/transforms.hpp>
+
 using Cloud = pcl::PointCloud<ouster_ros::Point>;
 
 namespace sensor
@@ -41,94 +45,125 @@ namespace sensor
  * for creating Pointclouds in the
  * driver in ROS2.
  */
-class PointcloudProcessor : public ros2_ouster::DataProcessorInterface
-{
-public:
-  /**
-   * @brief A constructor for sensor::PointcloudProcessor
-   * @param node Node for creating interfaces
-   * @param mdata metadata about the sensor
-   * @param frame frame_id to use for messages
-   */
-  PointcloudProcessor(
-    const rclcpp_lifecycle::LifecycleNode::SharedPtr node,
-    const ouster::sensor::sensor_info & mdata,
-    const std::string & frame,
-    const rclcpp::QoS & qos,
-    const ouster::sensor::packet_format & pf,
-    std::shared_ptr<sensor::FullRotationAccumulator> fullRotationAccumulator)
-  : DataProcessorInterface(), _node(node), _frame(frame)
+  class PointcloudProcessor : public ros2_ouster::DataProcessorInterface
   {
-    _fullRotationAccumulator = fullRotationAccumulator;
-    _height = mdata.format.pixels_per_column;
-    _width = mdata.format.columns_per_frame;
-    _xyz_lut = ouster::make_xyz_lut(mdata);
-    _cloud = std::make_unique<Cloud>(_width, _height);
-    _pub = _node->create_publisher<sensor_msgs::msg::PointCloud2>(
-      "points", qos);
-  }
+  public:
+    /**
+     * @brief A constructor for sensor::PointcloudProcessor
+     * @param node Node for creating interfaces
+     * @param mdata metadata about the sensor
+     * @param frame frame_id to use for messages
+     */
+    PointcloudProcessor(
+      const rclcpp_lifecycle::LifecycleNode::SharedPtr node,
+      const ouster::sensor::sensor_info & mdata,
+      const std::string & frame,
+      const rclcpp::QoS & qos,
+      const ouster::sensor::packet_format & pf,
+      std::shared_ptr<sensor::FullRotationAccumulator> fullRotationAccumulator)
+    : DataProcessorInterface(), _node(node), _frame(frame)
+    {
+      _fullRotationAccumulator = fullRotationAccumulator;
+      _height = mdata.format.pixels_per_column;
+      _width = mdata.format.columns_per_frame;
+      _xyz_lut = ouster::make_xyz_lut(mdata);
+      _cloud = std::make_unique<Cloud>(_width, _height);
+      _pub = _node->create_publisher<sensor_msgs::msg::PointCloud2>(
+        "points", qos);
 
-  /**
-   * @brief A destructor clearing memory allocated
-   */
-  ~PointcloudProcessor()
-  {
-    _pub.reset();
-  }
+      tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    }
 
-  /**
-   * @brief Process method to create pointcloud
-   * @param data the packet data
-   */
-  bool process(const uint8_t * data, const uint64_t override_ts) override
-  {
-    if (!_fullRotationAccumulator->isBatchReady()) {
+    /**
+     * @brief A destructor clearing memory allocated
+     */
+    ~PointcloudProcessor()
+    {
+      _pub.reset();
+    }
+
+    /**
+     * @brief Process method to create pointcloud
+     * @param data the packet data
+     */
+    bool process(const uint8_t * data, const uint64_t override_ts) override
+    {
+      if (!_fullRotationAccumulator->isBatchReady()) {
+        return true;
+      }
+
+      ros2_ouster::toCloud(
+        _xyz_lut, _fullRotationAccumulator->getTimestamp(),
+        *_fullRotationAccumulator->getLidarScan(), *_cloud);
+
+      auto ros_cloud = ros2_ouster::toMsg(
+        *_cloud,
+        _fullRotationAccumulator->getTimestamp(),
+        _frame, override_ts);
+
+      _pub->publish(ros_cloud);
+
+      try {
+
+        auto transform = tf_buffer_->lookupTransform(
+          "base_link",
+          _frame,
+          tf2::TimePointZero
+        );
+        
+        pcl_ros::transformPointCloud(
+          "base_link", transform, ros_cloud, ros_cloud);
+
+        _pub->publish(ros_cloud);
+
+
+      } catch (tf2::TransformException & ex) {
+        RCLCPP_ERROR(
+          _node->get_logger(),
+          "Transform error: %s",
+          ex.what());
+        return true;
+      }
+
+
+      RCLCPP_DEBUG(
+        _node->get_logger(),
+        "\n\nCloud published with %s packets\n",
+        std::to_string(_fullRotationAccumulator->getPacketsAccumulated()).c_str());
+
       return true;
     }
 
-    ros2_ouster::toCloud(
-      _xyz_lut, _fullRotationAccumulator->getTimestamp(),
-      *_fullRotationAccumulator->getLidarScan(), *_cloud);
-    _pub->publish(
-      ros2_ouster::toMsg(
-        *_cloud,
-        _fullRotationAccumulator->getTimestamp(),
-        _frame, override_ts));
+    /**
+     * @brief Activating processor from lifecycle state transitions
+     */
+    void onActivate() override
+    {
+      _pub->on_activate();
+    }
 
-    RCLCPP_DEBUG(
-      _node->get_logger(),
-      "\n\nCloud published with %s packets\n",
-      std::to_string(_fullRotationAccumulator->getPacketsAccumulated()).c_str());
+    /**
+     * @brief Deactivating processor from lifecycle state transitions
+     */
+    void onDeactivate() override
+    {
+      _pub->on_deactivate();
+    }
 
-    return true;
-  }
+  private:
+    std::unique_ptr<Cloud> _cloud;
+    rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr _pub;
+    rclcpp_lifecycle::LifecycleNode::SharedPtr _node;
+    ouster::XYZLut _xyz_lut;
+    std::string _frame;
+    uint32_t _height;
+    uint32_t _width;
+    std::shared_ptr<sensor::FullRotationAccumulator> _fullRotationAccumulator;
 
-  /**
-   * @brief Activating processor from lifecycle state transitions
-   */
-  void onActivate() override
-  {
-    _pub->on_activate();
-  }
-
-  /**
-   * @brief Deactivating processor from lifecycle state transitions
-   */
-  void onDeactivate() override
-  {
-    _pub->on_deactivate();
-  }
-
-private:
-  std::unique_ptr<Cloud> _cloud;
-  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr _pub;
-  rclcpp_lifecycle::LifecycleNode::SharedPtr _node;
-  ouster::XYZLut _xyz_lut;
-  std::string _frame;
-  uint32_t _height;
-  uint32_t _width;
-  std::shared_ptr<sensor::FullRotationAccumulator> _fullRotationAccumulator;
-};
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  };
 
 }  // namespace sensor
 
