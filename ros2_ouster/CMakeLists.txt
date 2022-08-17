@@ -19,6 +19,8 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
+
 find_package(ouster_msgs REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common)
 find_package(jsoncpp REQUIRED)
@@ -48,6 +50,7 @@ set(dependencies
   ouster_msgs
   tf2_geometry_msgs
   pcl_conversions
+  pcl_ros
 )
 
 add_library(${library_name} SHARED

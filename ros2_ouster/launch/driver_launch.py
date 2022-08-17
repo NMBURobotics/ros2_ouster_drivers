@@ -52,6 +52,7 @@ def generate_launch_description():
                                            '--log-level', 'INFO'],
                                 namespace='/',
                                 remappings=[('points', 'ouster/points'),
+                                            ('points_base_link', 'ouster/points/base_link'),
                                             ('imu', 'ouster/imu')]
                                 )
 
