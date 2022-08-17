@@ -34,6 +34,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 #include <pcl_ros/transforms.hpp>
+#include <pcl/filters/crop_box.h>
 
 using Cloud = pcl::PointCloud<ouster_ros::Point>;
 
@@ -83,6 +84,34 @@ namespace sensor
       _pub.reset();
     }
 
+    template<typename P>
+    typename pcl::PointCloud<P>::Ptr cropBox(
+      const typename pcl::PointCloud<P>::Ptr cloud,
+      Eigen::Vector4f min,
+      Eigen::Vector4f max)
+    {
+      typename pcl::PointCloud<P>::Ptr crop_cloud(new pcl::PointCloud<P>());
+      typename pcl::CropBox<P> boxFilter(true);
+      boxFilter.setMin(min);
+      boxFilter.setMax(max);
+      boxFilter.setInputCloud(cloud);
+      std::vector<int> indices;
+      boxFilter.filter(indices);
+
+      pcl::PointIndices::Ptr inliers_crop{new pcl::PointIndices};
+      for (int point : indices) {
+        inliers_crop->indices.push_back(point);
+      }
+      typename pcl::ExtractIndices<P> extract;
+      extract.setInputCloud(cloud);
+      extract.setIndices(inliers_crop);
+      extract.setNegative(true);
+      extract.filter(*crop_cloud);
+      crop_cloud->height = 1;
+      crop_cloud->width = crop_cloud->points.size();
+      return crop_cloud;
+    }
+
     /**
      * @brief Process method to create pointcloud
      * @param data the packet data
@@ -102,6 +131,16 @@ namespace sensor
         _fullRotationAccumulator->getTimestamp(),
         _frame, override_ts);
 
+      pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_curr(new pcl::PointCloud<pcl::PointXYZI>());
+      pcl::fromROSMsg(ros_cloud, *pcl_curr);
+
+      cropBox<pcl::PointXYZI>(
+        pcl_curr,
+        Eigen::Vector4f(-0.5, -0.5, -0.5, 0),
+        Eigen::Vector4f(0.5, 0.5, 0.5, 0));
+
+      pcl::toROSMsg(*pcl_curr, ros_cloud);
+
       _pub->publish(ros_cloud);
 
       try {
@@ -111,7 +150,7 @@ namespace sensor
           _frame,
           tf2::TimePointZero
         );
-        
+
         pcl_ros::transformPointCloud(
           "base_link", transform, ros_cloud, ros_cloud);
 
