@@ -35,6 +35,7 @@
 #include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 #include <pcl_ros/transforms.hpp>
 #include <pcl/filters/crop_box.h>
+#include <pcl/filters/extract_indices.h>
 
 using Cloud = pcl::PointCloud<ouster_ros::Point>;
 
@@ -135,15 +136,15 @@ namespace sensor
         _fullRotationAccumulator->getTimestamp(),
         _frame, override_ts);
 
-      pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_curr(new pcl::PointCloud<pcl::PointXYZI>());
-      pcl::fromROSMsg(ros_cloud, *pcl_curr);
+      //pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_curr(new pcl::PointCloud<pcl::PointXYZI>());
+      //pcl::fromROSMsg(ros_cloud, *pcl_curr);
 
-      cropBox<pcl::PointXYZI>(
-        pcl_curr,
-        Eigen::Vector4f(-0.5, -0.5, -0.5, 0),
-        Eigen::Vector4f(0.5, 0.5, 0.5, 0));
+      //pcl_curr = cropBox<pcl::PointXYZI>(
+      //  pcl_curr,
+      //  Eigen::Vector4f(-1.0, -1.0, -1.0, 0),
+      //  Eigen::Vector4f(1.0, 1.0, 1.0, 0));
 
-      pcl::toROSMsg(*pcl_curr, ros_cloud);
+      //pcl::toROSMsg(*pcl_curr, ros_cloud);
 
       _pub->publish(ros_cloud);
 
