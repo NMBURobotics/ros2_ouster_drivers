@@ -135,15 +135,15 @@ namespace sensor
         _fullRotationAccumulator->getTimestamp(),
         _frame, override_ts);
 
-      pcl::PointCloud<pcl::PointXYZI>::Ptr pcl_curr(new pcl::PointCloud<pcl::PointXYZI>());
-      pcl::fromROSMsg(ros_cloud, *pcl_curr);
+      // pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_curr(new pcl::PointCloud<pcl::PointXYZI>());
+      //pcl::fromROSMsg(ros_cloud, *pcl_curr);
 
-      cropBox<pcl::PointXYZI>(
-        pcl_curr,
-        Eigen::Vector4f(-0.5, -0.5, -0.5, 0),
-        Eigen::Vector4f(0.5, 0.5, 0.5, 0));
+      //cropBox<pcl::PointXYZI>(
+      //  pcl_curr,
+      //  Eigen::Vector4f(-0.5, -0.5, -0.5, 0),
+       // Eigen::Vector4f(0.5, 0.5, 0.5, 0));
 
-      pcl::toROSMsg(*pcl_curr, ros_cloud);
+      //pcl::toROSMsg(*pcl_curr, ros_cloud);
 
       _pub->publish(ros_cloud);
 
