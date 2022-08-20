@@ -35,6 +35,7 @@
 #include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 #include <pcl_ros/transforms.hpp>
 #include <pcl/filters/crop_box.h>
+#include <pcl/filters/extract_indices.h>
 
 using Cloud = pcl::PointCloud<ouster_ros::Point>;
 
