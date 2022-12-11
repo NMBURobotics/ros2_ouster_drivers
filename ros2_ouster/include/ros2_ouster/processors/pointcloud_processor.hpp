@@ -32,7 +32,6 @@
 #include "ros2_ouster/full_rotation_accumulator.hpp"
 
 #include <tf2_ros/transform_listener.h>
-#include <tf2_sensor_msgs/tf2_sensor_msgs.h>
 #include <pcl_ros/transforms.hpp>
 #include <pcl/filters/crop_box.h>
 #include <pcl/filters/extract_indices.h>
@@ -142,7 +141,7 @@ namespace sensor
       //cropBox<pcl::PointXYZI>(
       //  pcl_curr,
       //  Eigen::Vector4f(-0.5, -0.5, -0.5, 0),
-       // Eigen::Vector4f(0.5, 0.5, 0.5, 0));
+      // Eigen::Vector4f(0.5, 0.5, 0.5, 0));
 
       //pcl::toROSMsg(*pcl_curr, ros_cloud);
 
